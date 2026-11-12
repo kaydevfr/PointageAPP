@@ -1,0 +1,13 @@
+{
+  "name": "nettoyeurs-pointage",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node outils/test-pglite.mjs",
+    "test:supabase": "supabase test db"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.5.16",
+    "@electric-sql/pglite-postgis": ""
+  }
+}
