@@ -1,6 +1,7 @@
-# Cahier des charges pour Claude Code : pointage Les Nettoyeurs (Supabase + WeWeb)
+# Cahier des charges pour Claude Code : pointage Les Nettoyeurs (Supabase + Next.js)
 
 > **Version 2, 12 novembre 2026.** Elle remplace le guide précédent : le choix technique est maintenant **Supabase** (base de données, authentification, fonctions serveur) et **WeWeb** (l'interface).
+> **Mise à jour du 16 novembre 2026 :** l'interface n'est plus faite dans WeWeb mais en **Next.js** (dossier `web/` du dépôt), hébergée sur **Vercel**. Claude Code code donc directement le front. Le reste du cahier des charges est inchangé.
 > À placer à la racine du projet sous le nom `CLAUDE.md`. Le message à envoyer à Claude Code pour démarrer est tout en bas (section 15).
 
 ---
@@ -9,7 +10,7 @@
 
 Les Nettoyeurs nettoie des immeubles. Ses **agents** et **volants** passent sur plusieurs **sites** par jour, selon un **planning** hebdomadaire, et doivent **pointer leur arrivée et leur départ** sur chaque site.
 
-Aujourd'hui, ce pointage se fait dans l'application Bubble (« Léon »), avec une puce NFC collée sur chaque site. On veut une **nouvelle application de pointage**, construite avec Supabase et WeWeb, qui règle deux problèmes :
+Aujourd'hui, ce pointage se fait dans l'application Bubble (« Léon »), avec une puce NFC collée sur chaque site. On veut une **nouvelle application de pointage**, construite avec Supabase et Next.js, qui règle deux problèmes :
 
 1. **La triche.** Des agents pointent sans être sur place : lien de la puce copié ou partagé, mode avion, pointage fait par un collègue, etc. La triche doit devenir **difficile, et surtout visible pour l'admin**.
 2. **Les agents sans NFC.** Certains téléphones n'ont pas de NFC. Ces agents ont un **bouton** pour pointer, qui utilise la **localisation**.
@@ -85,9 +86,9 @@ Aujourd'hui, ce pointage se fait dans l'application Bubble (« Léon »), avec u
 
 ---
 
-## 3. Contraintes techniques imposées par WeWeb (à bien comprendre)
+## 3. Contraintes techniques du web (à bien comprendre)
 
-WeWeb produit une **application web** (éventuellement installable en PWA), pas une application native. Conséquences :
+Le front Next.js produit une **application web** (éventuellement installable en PWA), pas une application native. Conséquences :
 
 | Sujet | Ce qui est possible sur le web | Conséquence |
 |---|---|---|
@@ -118,7 +119,7 @@ WeWeb produit une **application web** (éventuellement installable en PWA), pas 
 5. Les règles d'affichage de Bubble (section 2.4) sont reprises à l'identique.
 6. **Langue** : français par défaut. Le champ `Langue` existe déjà ; la traduction est à prévoir pour plus tard.
 
-### 4.2 Admin (back-office web, dans WeWeb)
+### 4.2 Admin (back-office web, dans le front Next.js)
 
 1. **Liste des pointages** : filtres par période, salarié, site, secteur et statut de confiance.
 2. **Badge de confiance** sur chaque pointage : ✅ vérifié, ⚠️ à vérifier, ❓ non vérifié.
@@ -172,7 +173,7 @@ WeWeb produit une **application web** (éventuellement installable en PWA), pas 
 
 - À la première connexion, l'agent crée une **passkey** (WebAuthn) sur son téléphone, protégée par Face ID ou l'empreinte.
 - **Chaque pointage** (NFC ou bouton) est **signé** avec cette passkey : un défi (challenge) unique fourni par le serveur, puis une vérification dans l'Edge Function, par exemple avec `@simplewebauthn/server`.
-  - Côté WeWeb, cela passe par une action JavaScript personnalisée ou un composant codé.
+  - Côté front, cela passe par l'API WebAuthn du navigateur (par exemple `@simplewebauthn/browser`).
 - Conséquences :
   - **Pointer à la place d'un collègue** suppose d'avoir son téléphone **et** de le déverrouiller. C'est le « buddy punching » qu'on veut empêcher.
   - Une passkey utilisée par **deux agents** la même journée est impossible. En revanche, **un même téléphone** avec deux comptes déclenche l'alerte `SHARED_DEVICE`.
@@ -235,7 +236,7 @@ Puce NTAG 424 ──scan──▶ navigateur du téléphone (Safari / Chrome)
                                │ ouvre https://<app>/scan?picc=…&cmac=…
                                ▼
                  ┌───────────────────────────┐
-                 │ WeWeb (front)             │  pages : connexion, planning du jour,
+                 │ Next.js (front, Vercel)   │  pages : connexion, planning du jour,
                  │ agents + back-office admin│  scan, admin pointages, réglages
                  └────────────┬──────────────┘
                               │ supabase-js (session) + appels Edge Functions
@@ -261,7 +262,7 @@ Puce NTAG 424 ──scan──▶ navigateur du téléphone (Safari / Chrome)
 ### 7.1 Répartition des rôles
 
 - **Supabase porte toute la logique** : calculs, choix du pointage, anti-triche, statut de confiance.
-- **WeWeb ne fait qu'afficher et appeler** les fonctions de Supabase. **Aucune règle métier dans WeWeb**, pour qu'elle reste testable et impossible à contourner.
+- **Le front Next.js ne fait qu'afficher et appeler** les fonctions de Supabase. **Aucune règle métier dans le front**, pour qu'elle reste testable et impossible à contourner.
 
 ### 7.2 Ce que Claude Code peut faire, et comment
 
@@ -274,10 +275,7 @@ Puce NTAG 424 ──scan──▶ navigateur du téléphone (Safari / Chrome)
   - les tests (pgTAP pour le SQL, `deno test` pour les fonctions) ;
   - les données de test (`seed.sql`).
 - Claude Code utilise la **CLI Supabase** : `supabase start` pour le local, `supabase db push` et `supabase functions deploy` pour le déploiement.
-- **Côté WeWeb** : l'éditeur WeWeb est visuel, donc Claude Code ne peut pas y construire les pages directement. Il fournit :
-  1. les **composants codés WeWeb** (en Vue) pour les parties techniques : page de scan, passkey, localisation, carte admin. Ils sont développés dans un dépôt à part et importés dans WeWeb ;
-  2. pour chaque page, une **fiche de montage pas à pas**, à faire dans l'éditeur WeWeb : collections, variables, workflows, éléments, avec les appels exacts aux fonctions Supabase ;
-  3. le code des **actions JavaScript personnalisées** à coller dans les workflows WeWeb.
+- **Côté front (Next.js, dossier `web/`)** : Claude Code code directement les pages, les composants et les appels à Supabase (`@supabase/ssr`), avec des tests. Le front n'utilise que la clé `anon` et ne contient aucune règle métier. Il est déployé sur Vercel (région Paris).
 
 ### 7.3 Lien avec Bubble (phase 1 : Bubble reste la référence)
 
@@ -393,7 +391,7 @@ reglages        (cle, valeur)  -- rayon par défaut, seuils, durée de conservat
 
 ---
 
-## 10. API exposée à WeWeb
+## 10. API exposée au front
 
 | Appel | Rôle |
 |---|---|
@@ -408,7 +406,7 @@ reglages        (cle, valeur)  -- rayon par défaut, seuils, durée de conservat
 **Règles communes :**
 - Limite de 10 actions de pointage par minute et par agent.
 - Un défi passkey n'est valable que **60 s** et **une seule fois**.
-- **Aucun secret dans WeWeb.** Le front n'utilise que la clé publique (`anon`) de Supabase. Les autres secrets restent dans les variables d'environnement des Edge Functions : clé `service_role`, clé de l'API Bubble, clés des puces.
+- **Aucun secret dans le front.** Le front n'utilise que la clé publique (`anon`) de Supabase. Les autres secrets restent dans les variables d'environnement des Edge Functions : clé `service_role`, clé de l'API Bubble, clés des puces.
 
 ---
 
@@ -442,11 +440,11 @@ reglages        (cle, valeur)  -- rayon par défaut, seuils, durée de conservat
 **Phase 1 : bouton + localisation + Bubble**
 - `sync-bubble` en lecture, et renvoi des pointages vers Bubble (version **Test** de Bubble d'abord).
 - Edge Function `pointer` ; connexion par code email.
-- WeWeb :
+- Front Next.js :
   - pages connexion, planning du jour, admin pointages et réglages site ;
   - fiches de montage ;
   - composant de localisation.
-- ✅ Un agent de test pointe avec le bouton. Le pointage apparaît avec le bon statut dans l'admin WeWeb **et** dans la page Pointages de Bubble (Test).
+- ✅ Un agent de test pointe avec le bouton. Le pointage apparaît avec le bon statut dans l'admin du front **et** dans la page Pointages de Bubble (Test).
 
 **Phase 2 : puces sécurisées + passkeys**
 - `nfc-scan` avec la vérification SUN/CMAC (testée sur les vecteurs NXP), anti-rejeu par compteur, page de scan.
@@ -503,18 +501,17 @@ reglages        (cle, valeur)  -- rayon par défaut, seuils, durée de conservat
 
 ```
 Lis entièrement CLAUDE.md : c'est le cahier des charges d'une application de pointage
-(Supabase + WeWeb) pour l'entreprise Les Nettoyeurs.
+(Supabase + Next.js) pour l'entreprise Les Nettoyeurs.
 
 Règles de travail :
 - Toute la logique métier et l'anti-triche vont dans Supabase (SQL, RLS, Edge Functions),
-  jamais dans WeWeb. WeWeb ne fait qu'afficher et appeler.
+  jamais dans le front Next.js, qui ne fait qu'afficher et appeler.
 - Travaille phase par phase (section 12). À chaque phase : un plan court, le code,
   les tests, puis un résumé de ce qui est testé et de ce qui reste.
-- Pour WeWeb, tu ne peux pas construire les pages toi-même : fournis des composants
-  codés quand c'est nécessaire, et une fiche de montage pas à pas pour chaque page
-  (variables, collections, workflows, appels Supabase exacts).
+- Le front est en Next.js (dossier web/), déployé sur Vercel : code-le directement,
+  avec des tests, sans y mettre de règle métier.
 - Ne fais jamais confiance à l'heure ni à la position envoyées par le téléphone.
-- Aucun secret dans le code ni dans WeWeb : variables d'environnement et Vault.
+- Aucun secret dans le code ni dans le front : variables d'environnement et Vault.
 - Teste toujours avec la version Test de Bubble, jamais Live.
 - Si une décision de la section 13 n'est pas tranchée et bloque, pose-moi la question
   avant de coder.

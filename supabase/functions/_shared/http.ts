@@ -1,7 +1,7 @@
-// Réponses HTTP communes aux Edge Functions appelées par WeWeb.
+// Réponses HTTP communes aux Edge Functions appelées par le front Next.js.
 
 // Origines autorisées : variable ALLOWED_ORIGINS (séparées par des virgules),
-// par exemple « https://editor.weweb.io,https://pointage.lesnettoyeurs.fr ».
+// par exemple « http://localhost:3000,https://pointage.vercel.app ».
 // Sans réglage : toutes (l'authentification repose de toute façon sur le jeton).
 const origines = (Deno.env.get("ALLOWED_ORIGINS") ?? "")
   .split(",")

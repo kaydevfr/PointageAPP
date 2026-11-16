@@ -1,4 +1,4 @@
-# Pointage Les Nettoyeurs (Supabase + WeWeb)
+# Pointage Les Nettoyeurs (Supabase + Next.js)
 
 Le cahier des charges complet est dans [CLAUDE.md](CLAUDE.md). Les choix et hypothèses sont dans [docs/decisions.md](docs/decisions.md).
 
@@ -6,7 +6,7 @@ Le cahier des charges complet est dans [CLAUDE.md](CLAUDE.md). Les choix et hypo
 
 - **Phase 0 (fait)** : schéma, RLS, fonctions SQL métier, tâches `pg_cron`, données de test et tests pgTAP.
 - **Phase 1 (en cours)** :
-  - fait : comptes réservés aux salariés connus (hook Auth et `mon_profil`), Edge Function `pointer` (bouton), fiches de montage WeWeb ;
+  - fait : comptes réservés aux salariés connus (hook Auth et `mon_profil`), Edge Function `pointer` (bouton), front Next.js (connexion, planning du jour) ;
   - reste : synchronisation Bubble (`sync-bubble`), renvoi des pointages vers Bubble, pages et RPC admin.
 - **Phase 2** : puces sécurisées, page de scan et passkeys.
 
@@ -20,7 +20,7 @@ supabase/
   tests/        pgTAP, un fichier par thème
   seed.sql      données locales fictives
 supabase/functions/pointer   Edge Function du bouton (+ tests Deno)
-weweb/        fiches de montage et actions JavaScript à coller
+web/          front Next.js (Vercel)
 outils/test-pglite.mjs   vérification rapide sans Docker
 docs/decisions.md
 ```
@@ -28,7 +28,7 @@ docs/decisions.md
 ## Prérequis
 
 - **Docker Desktop**, indispensable pour faire tourner Supabase en local.
-- **Node.js**. La CLI Supabase s'utilise avec `npx supabase …`.
+- **Node.js**. Le front est dans [web/](web/README.md) (Next.js, déployé sur Vercel). La CLI Supabase s'utilise avec `npx supabase …`.
 
 ## Commandes
 
@@ -42,7 +42,7 @@ Vérification rapide, sans Docker. Elle utilise Postgres en WASM (PGlite) avec P
 npm test
 ```
 
-`npm test` lance aussi les tests Deno des Edge Functions. Deno est téléchargé automatiquement par `npx`.
+`npm test` lance aussi les tests Deno des Edge Functions et les tests Vitest du front. Avant la première fois, lance aussi `npm --prefix web install`. Deno est téléchargé automatiquement par `npx`.
 
 Vérification de référence, avec Docker. Elle utilise le vrai Supabase et le vrai pgTAP :
 
@@ -62,9 +62,9 @@ npx supabase test db
 
 | Fonction | Appelée par | Rôle |
 |---|---|---|
-| `public.mon_profil()` | WeWeb, après chaque connexion | Relie le compte à la fiche salarié ; dit si l'accès est autorisé et s'il faut afficher les boutons |
-| `public.mon_planning(date)` | WeWeb (utilisateur connecté) | Les cartes du jour, avec l'état d'affichage et le bouton à montrer |
-| `POST /functions/v1/pointer` | WeWeb (bouton) | Vérifie la session, puis appelle `traiter_pointage` |
+| `public.mon_profil()` | Front, après chaque connexion | Relie le compte à la fiche salarié ; dit si l'accès est autorisé et s'il faut afficher les boutons |
+| `public.mon_planning(date)` | Front (utilisateur connecté) | Les cartes du jour, avec l'état d'affichage et le bouton à montrer |
+| `POST /functions/v1/pointer` | Front (bouton) | Vérifie la session, puis appelle `traiter_pointage` |
 | `public.hook_avant_creation_compte(event)` | Supabase Auth (hook) | Refuse les emails inconnus ou archivés |
 | `public.traiter_pointage(profil, site, méthode, pointage?, créneau?, preuves)` | Edge Functions (`service_role`) | Arrivée, départ ou action ignorée, avec alertes et statut de confiance |
 | `public.nfc_reserver_compteur(puce, compteur)` | Edge Function `nfc-scan` | Anti-rejeu SUN |

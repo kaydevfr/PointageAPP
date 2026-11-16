@@ -20,6 +20,12 @@ Ce fichier liste ce qui a été tranché, ou supposé faute de réponse. Une hyp
 2. **Numéro du jour dans Bubble** : on suppose que l'attribut « No » vaut 1 pour lundi et 7 pour dimanche (norme ISO). La conversion se fera dans `sync-bubble` (phase 1).
 3. **Téléphone partagé (`SHARED_DEVICE`)** : un identifiant aléatoire (`appareil_id`) est gardé dans le navigateur. La détection est approximative, car Safari efface ces données au bout de 7 jours d'inactivité.
 
+## Front
+
+- **16 novembre 2026** : le front est en **Next.js** (dossier `web/`), hébergé sur **Vercel**, région Paris. Il remplace WeWeb.
+  - Toute la logique reste dans Supabase.
+  - Le front n'utilise que la clé `anon`.
+
 ## Choix techniques (écarts ou précisions par rapport au cahier des charges)
 
 - **`profiles.id` ≠ `auth.users.id`** : les profils sont créés par la synchronisation avant que les comptes existent. La colonne `user_id` est remplie à la première connexion.
