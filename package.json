@@ -3,7 +3,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node outils/test-pglite.mjs",
+    "test": "npm run test:db && npm run test:functions",
+    "test:db": "node outils/test-pglite.mjs",
+    "test:functions": "npx -y deno test --config supabase/functions/pointer/deno.json supabase/functions/",
     "test:supabase": "supabase test db"
   },
   "devDependencies": {

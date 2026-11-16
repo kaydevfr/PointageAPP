@@ -2,11 +2,13 @@
 
 Le cahier des charges complet est dans [CLAUDE.md](CLAUDE.md). Les choix et hypothèses sont dans [docs/decisions.md](docs/decisions.md).
 
-## État : phase 0 (socle)
+## État
 
-- Schéma, RLS, fonctions SQL métier, tâches `pg_cron`, données de test.
-- 9 fichiers de tests pgTAP, qui couvrent la section 14 côté base de données.
-- **Pas encore fait** : Edge Functions (`pointer`, `nfc-scan`, `passkey-*`, `sync-bubble`), RPC admin et WeWeb. Tout cela arrive en phase 1 et en phase 2.
+- **Phase 0 (fait)** : schéma, RLS, fonctions SQL métier, tâches `pg_cron`, données de test et tests pgTAP.
+- **Phase 1 (en cours)** :
+  - fait : comptes réservés aux salariés connus (hook Auth et `mon_profil`), Edge Function `pointer` (bouton), fiches de montage WeWeb ;
+  - reste : synchronisation Bubble (`sync-bubble`), renvoi des pointages vers Bubble, pages et RPC admin.
+- **Phase 2** : puces sécurisées, page de scan et passkeys.
 
 ## Structure
 
@@ -17,6 +19,8 @@ supabase/
                 06 fonctions de calcul · 07 logique de pointage · 08 droits/RLS · 09 cron
   tests/        pgTAP, un fichier par thème
   seed.sql      données locales fictives
+supabase/functions/pointer   Edge Function du bouton (+ tests Deno)
+weweb/        fiches de montage et actions JavaScript à coller
 outils/test-pglite.mjs   vérification rapide sans Docker
 docs/decisions.md
 ```
@@ -38,6 +42,8 @@ Vérification rapide, sans Docker. Elle utilise Postgres en WASM (PGlite) avec P
 npm test
 ```
 
+`npm test` lance aussi les tests Deno des Edge Functions. Deno est téléchargé automatiquement par `npx`.
+
 Vérification de référence, avec Docker. Elle utilise le vrai Supabase et le vrai pgTAP :
 
 ```bash
@@ -56,7 +62,10 @@ npx supabase test db
 
 | Fonction | Appelée par | Rôle |
 |---|---|---|
+| `public.mon_profil()` | WeWeb, après chaque connexion | Relie le compte à la fiche salarié ; dit si l'accès est autorisé et s'il faut afficher les boutons |
 | `public.mon_planning(date)` | WeWeb (utilisateur connecté) | Les cartes du jour, avec l'état d'affichage et le bouton à montrer |
+| `POST /functions/v1/pointer` | WeWeb (bouton) | Vérifie la session, puis appelle `traiter_pointage` |
+| `public.hook_avant_creation_compte(event)` | Supabase Auth (hook) | Refuse les emails inconnus ou archivés |
 | `public.traiter_pointage(profil, site, méthode, pointage?, créneau?, preuves)` | Edge Functions (`service_role`) | Arrivée, départ ou action ignorée, avec alertes et statut de confiance |
 | `public.nfc_reserver_compteur(puce, compteur)` | Edge Function `nfc-scan` | Anti-rejeu SUN |
 | `public.generer_pointages(date?)` | `pg_cron`, toutes les heures | Génère les pointages prévus, de façon idempotente |

@@ -16,7 +16,7 @@ const db = new PGlite({ extensions: { postgis } });
 const env = `
 create schema extensions;
 grant usage on schema extensions to public;
-create role anon nologin; create role authenticated nologin; create role service_role nologin bypassrls;
+create role anon nologin; create role supabase_auth_admin nologin; create role authenticated nologin; create role service_role nologin bypassrls;
 -- défauts Supabase (que la migration 08 doit annuler)
 alter default privileges for role postgres in schema public grant all on tables to anon, authenticated, service_role;
 alter default privileges for role postgres in schema public grant all on functions to anon, authenticated, service_role;
@@ -28,6 +28,10 @@ create function auth.uid() returns uuid language sql stable as $$
   select coalesce(nullif(current_setting('request.jwt.claim.sub', true), ''),
                   (nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'sub'))::uuid $$;
 grant execute on function auth.uid() to public;
+create function auth.jwt() returns jsonb language sql stable as $$
+  select coalesce(nullif(current_setting('request.jwt.claim', true), ''),
+                  nullif(current_setting('request.jwt.claims', true), ''))::jsonb $$;
+grant execute on function auth.jwt() to public;
 create schema cron;
 create function cron.schedule(text, text, text) returns bigint language sql as $$ select 1::bigint $$;
 alter database template1 set search_path = public, extensions;
